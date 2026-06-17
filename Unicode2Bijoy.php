@@ -25,6 +25,25 @@ class Unicode2Bijoy
         /** No need, watson! */
         if(empty($str))
             return $str;
+
+        /**
+         * Compose decomposed nukta letters to their precomposed forms.
+         *
+         * Bangla ড়, ঢ়, য় exist in two Unicode forms: precomposed
+         * (U+09DC/U+09DD/U+09DF) and decomposed (base + U+09BC nukta). Text copied
+         * from the web frequently uses the decomposed form, which left the bare
+         * nukta (়) unconverted and rendered as a tofu box (□) in SutonnyMJ.
+         *
+         * Note: these code points are Unicode "composition exclusions", so
+         * Normalizer/NFC will NOT compose them (it decomposes instead) — hence we
+         * compose them explicitly, toward the precomposed form the map expects.
+         */
+        $str = str_replace(
+            array("\u{09A1}\u{09BC}", "\u{09A2}\u{09BC}", "\u{09AF}\u{09BC}"),
+            array("\u{09DC}", "\u{09DD}", "\u{09DF}"),
+            $str
+        );
+
         /** Replace Simple Characters */
         $str=self::convertSimpleChars($str);
 
@@ -141,7 +160,7 @@ class Unicode2Bijoy
         'ত্ন' => 'Zœ',
         'ত্ব' => 'Z¡',
         'ত্ম' => 'Í',
-        'ত্ম' => 'Z&g',
+        'ত্‌ম' => 'Z&g',
         'ত্ম্য' => 'Í¨',
         'ত্য' => 'Z¨',
         'ত্র' => 'Î',
@@ -401,6 +420,16 @@ class Unicode2Bijoy
         'ূ' => '‚',
         'ৃ' => '„',
         'ৄ' => 'ৄ',
+        /**
+         * Generic ya-phola (য-ফলা) catch-all.
+         *
+         * The map above only lists ya-phola for specific bases (ক্য, খ্য …). Any
+         * other base + ্য (e.g. য়্য in ইয়্যা, ঙ্য) fell through: the hasanta was
+         * dropped and য became a standalone 'h'. Because the map is applied
+         * longest-key-first, every explicit conjunct still wins over this entry,
+         * so it only catches the bases that were previously missed.
+         */
+        '্য' => '¨',
         '্' => '',
         'ৎ' => 'r',
         'ৗ' => '',
@@ -423,6 +452,33 @@ class Unicode2Bijoy
         '৯' => '9',
         '।' => '|'
     );
+        /**
+         * Compose the map keys' nukta letters too, so they stay consistent with
+         * the precomposed input produced by convert() regardless of how each
+         * literal above happens to be encoded.
+         */
+        $char_map_composed = array();
+        foreach($char_map as $key => $value) {
+            $ckey = str_replace(
+                array("\u{09A1}\u{09BC}", "\u{09A2}\u{09BC}", "\u{09AF}\u{09BC}"),
+                array("\u{09DC}", "\u{09DD}", "\u{09DF}"),
+                $key
+            );
+            $char_map_composed[$ckey] = $value;
+        }
+        $char_map = $char_map_composed;
+
+        /**
+         * Sort the map by key length (longest first) before replacing.
+         *
+         * str_replace() applies the array sequentially, so a shorter conjunct
+         * (e.g. ক্ত) listed before a longer one (ক্ত্র) would be replaced first
+         * and break the longer conjunct. Sorting longest-first guarantees the
+         * most specific (longest) match always wins, regardless of map order.
+         */
+        uksort($char_map, function ($a, $b) {
+            return strlen($b) - strlen($a);
+        });
         return str_replace(array_keys($char_map), array_values($char_map), $str);
     }
 

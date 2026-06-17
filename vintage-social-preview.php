@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vintage Social Preview
  * Description: Automatically generates a vintage social media preview image for every post with Bangla support.
- * Version: 1.2
+ * Version: 1.3
  * Author: almahmud
  * Author URI: https://ruqyahbd.org/
  */
